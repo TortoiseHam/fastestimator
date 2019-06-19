@@ -1,12 +1,15 @@
-from fastestimator.util.util import convert_tf_dtype
-import multiprocessing as mp
-import tensorflow as tf
-import pandas as pd
-import numpy as np
-import tempfile
-import shutil
 import json
+import multiprocessing as mp
 import os
+import shutil
+import tempfile
+
+import numpy as np
+import pandas as pd
+import tensorflow as tf
+
+from fastestimator.util.util import convert_tf_dtype
+
 
 class TFRecorder:
     """
@@ -25,7 +28,9 @@ class TFRecorder:
         max_tfrecord_mb: Maximum space to be occupied by one TFRecord.
         compression: tfrecords compression type, one of None, 'GZIP' or 'ZLIB'.
     """
-    def __init__(self, train_data, feature_name, transform_dataset=None, validation_data=None, create_patch=False, max_tfrecord_mb=300, compression=None):
+
+    def __init__(self, train_data, feature_name, transform_dataset=None, validation_data=None, create_patch=False,
+                 max_tfrecord_mb=300, compression=None):
         self.train_data = train_data
         self.feature_name = feature_name
         self.transform_dataset = transform_dataset
@@ -57,8 +62,10 @@ class TFRecorder:
         self._get_feature_info()
         if self.validation_data:
             self._prepare_validation_dict()
-            self.num_eval_example_list = self._write_tfrecord_parallel(self.validation_data, self.num_eval_exmaple_csv, "eval")
-        self.num_train_example_list = self._write_tfrecord_parallel(self.train_data, self.num_train_example_csv, "train")
+            self.num_eval_example_list = self._write_tfrecord_parallel(self.validation_data, self.num_eval_exmaple_csv,
+                                                                       "eval")
+        self.num_train_example_list = self._write_tfrecord_parallel(self.train_data, self.num_train_example_csv,
+                                                                    "train")
         self._write_json_summary()
         return self.save_dir
 
@@ -77,19 +84,19 @@ class TFRecorder:
             self.feature_type_new.append(dtype)
             self.feature_shape.append(data.shape)
 
-
     def _write_tfrecord_parallel(self, dictionary, num_example_csv, mode):
         num_example_list = []
         processes = []
         queue = mp.Queue()
         num_example_process = num_example_csv // self.num_process
         process_start = self.rank * num_example_process
-        if self.rank == (self.num_process -1):
+        if self.rank == (self.num_process - 1):
             process_end = num_example_csv
         else:
             process_end = process_start + num_example_process
         num_example_process = process_end - process_start
-        num_files_subprocess = int(np.ceil(num_example_process * self.mb_per_csv_example / self.max_tfrecord_mb / self.num_subprocess))
+        num_files_subprocess = int(
+            np.ceil(num_example_process * self.mb_per_csv_example / self.max_tfrecord_mb / self.num_subprocess))
         file_idx_start_process = self.rank * num_files_subprocess * self.num_subprocess
         num_example_subprocess_remain = num_example_process % self.num_subprocess
         serial_start = process_start
@@ -100,7 +107,8 @@ class TFRecorder:
             else:
                 num_example_subprocess = num_example_process // self.num_subprocess
             serial_end = serial_start + num_example_subprocess
-            processes.append(mp.Process(target=self._write_tfrecord_serial, args=(dictionary, serial_start, serial_end, num_files_subprocess, file_idx_start_subprocess, mode, queue)))
+            processes.append(mp.Process(target=self._write_tfrecord_serial, args=(
+            dictionary, serial_start, serial_end, num_files_subprocess, file_idx_start_subprocess, mode, queue)))
             serial_start += num_example_subprocess
         for p in processes:
             p.start()
@@ -110,7 +118,8 @@ class TFRecorder:
             p.join()
         return num_example_list
 
-    def _write_tfrecord_serial(self, dictionary, serial_start, serial_end, num_files_subprocess, file_idx_start, mode, queue):
+    def _write_tfrecord_serial(self, dictionary, serial_start, serial_end, num_files_subprocess, file_idx_start, mode,
+                               queue):
         num_example_list = []
         num_csv_example_per_file = (serial_end - serial_start) // num_files_subprocess
         show_progress = serial_start == 0
@@ -121,19 +130,23 @@ class TFRecorder:
             filename = mode + str(file_idx) + ".tfrecord"
             if i == (num_files_subprocess - 1):
                 file_end = serial_end
-            num_example_list.append(self._write_single_file(dictionary, filename, file_start, file_end, serial_start, serial_end, show_progress, mode))
+            num_example_list.append(
+                self._write_single_file(dictionary, filename, file_start, file_end, serial_start, serial_end,
+                                        show_progress, mode))
             file_start += num_csv_example_per_file
             file_end += num_csv_example_per_file
         queue.put(num_example_list)
 
-    def _write_single_file(self, dictionary, filename, file_start, file_end, serial_start, serial_end, show_progress, mode):
+    def _write_single_file(self, dictionary, filename, file_start, file_end, serial_start, serial_end, show_progress,
+                           mode):
         goal_number = serial_end - serial_start
         logging_interval = max(goal_number // 20, 1)
         num_example = 0
-        with tf.io.TFRecordWriter(os.path.join(self.save_dir, filename), options= self.compression_option) as writer:
+        with tf.io.TFRecordWriter(os.path.join(self.save_dir, filename), options=self.compression_option) as writer:
             for i in range(file_start, file_end):
                 if (i - serial_start) % logging_interval == 0 and show_progress:
-                    print("FastEstimator: --Converting %s TFRecords %f%%--" % (mode.capitalize(), (i - serial_start)/goal_number*100))
+                    print("FastEstimator: --Converting %s TFRecords %f%%--" % (
+                        mode.capitalize(), (i - serial_start) / goal_number * 100))
                 feature = self._transform_one_slice(dictionary, i)
                 if self.create_patch:
                     num_patches = self._verify_dict(feature)
@@ -158,7 +171,7 @@ class TFRecorder:
         keys = dictionary.keys()
         for key in keys:
             data = dictionary[key]
-            if type(data) is np.ndarray and data.size ==1:
+            if type(data) is np.ndarray and data.size == 1:
                 data = data.reshape(-1)[0]
             if type(data) is np.ndarray and data.size > 1:
                 feature_tfrecord[key] = self._bytes_feature(data.tostring())
@@ -248,12 +261,15 @@ class TFRecorder:
             hvd.allreduce([0], name="Barrier")
 
     def _verify_input(self):
-        assert type(self.train_data) is dict or self.train_data.endswith(".csv"), "train data should be either dictionary or csv file"
+        assert type(self.train_data) is dict or self.train_data.endswith(
+            ".csv"), "train data should be either dictionary or csv file"
         if self.validation_data:
-            assert type(self.validation_data) in [dict, float] or self.validation_data.endswith(".csv"), "validation data supports partition ratio (float), csv file or dictionary"
+            assert type(self.validation_data) in [dict, float] or self.validation_data.endswith(
+                ".csv"), "validation data supports partition ratio (float), csv file or dictionary"
 
     def _write_json_summary(self):
-        summary = {"feature_name": self.feature_name_new, "feature_dtype": self.feature_type_new, "feature_shape": self.feature_shape}
+        summary = {"feature_name": self.feature_name_new, "feature_dtype": self.feature_type_new,
+                   "feature_shape": self.feature_shape}
         train_files, num_train_examples = zip(*self.num_train_example_list)
         summary["train_files"] = list(train_files)
         summary["num_train_examples"] = list(num_train_examples)
@@ -266,6 +282,7 @@ class TFRecorder:
         file_name = "summary%d.json" % self.rank
         with open(os.path.join(self.save_dir, file_name), 'w') as fp:
             json.dump(summary, fp, indent=4)
+
 
 def tfrecord_to_np(file_path):
     """
@@ -280,12 +297,13 @@ def tfrecord_to_np(file_path):
     tensor_data = dict()
     folder_path = os.path.dirname(file_path)
     json_files = [os.path.join(folder_path, f) for f in os.listdir(folder_path) if f.endswith(".json")]
-    assert len(json_files) > 0, "Cannot find summary json file, you can either add the json file or use TFRecorder to create tfrecord"
+    assert len(json_files) > 0, \
+        "Cannot find summary json file, you can either add the json file or use TFRecorder to create tfrecord"
     summary = json.load(open(json_files[0], 'r'))
     keys_to_features = get_features(file_path)
-    decode_type = {name:dtype for (name, dtype) in zip(summary["feature_name"], summary["feature_dtype"])}
-    for tf_record_example in tf.io.tf_record_iterator(file_path):
-        example = tf.parse_single_example(tf_record_example, features=keys_to_features)
+    decode_type = {name: dtype for (name, dtype) in zip(summary["feature_name"], summary["feature_dtype"])}
+    for tf_record_example in tf.data.TFRecordDataset(file_path):
+        example = tf.compat.v1.parse_single_example(tf_record_example, features=keys_to_features)
         for key in summary["feature_name"]:
             data = example[key]
             if "string" in str(data.dtype):
@@ -299,6 +317,7 @@ def tfrecord_to_np(file_path):
     for key in np_data.keys():
         np_data[key] = np.array(np_data[key])
     return np_data
+
 
 def get_number_of_examples(file_path, show_warning=True, compression=None):
     """
@@ -315,11 +334,13 @@ def get_number_of_examples(file_path, show_warning=True, compression=None):
     _, ext = os.path.splitext(file_path)
     assert "tfrecord" in ext, "please make sure data is in tfrecord format"
     dataset = tf.data.TFRecordDataset(file_path, compression_type=compression)
-    example_size = len(next(iter(dataset)).numpy()) + 16  #from multiple observations, tfrecord adds 16 byte to each example
+    example_size = len(
+        next(iter(dataset)).numpy()) + 16  # from multiple observations, tfrecord adds 16 byte to each example
     file_size = os.stat(file_path).st_size
     if file_size % example_size != 0 and show_warning:
         print("FastEstimator-Warning: Can't accurately calculate number of examples")
-    return max(file_size//example_size, 1)
+    return max(file_size // example_size, 1)
+
 
 def get_features(file_path, compression=None):
     """
@@ -332,6 +353,7 @@ def get_features(file_path, compression=None):
     Returns:
         Dictionary containing feature information of TFRecords
     """
+
     def _get_dtype(example, feature):
         dtype = list(example.features.feature[feature].DESCRIPTOR.fields_by_name.keys())
         dtype = np.array(dtype)
@@ -340,6 +362,7 @@ def get_features(file_path, compression=None):
         type_dict = {'bytes_list': tf.string, 'int64_list': tf.int64, 'float_list': tf.float32}
         tf_type = type_dict[feature_dtype]
         return tf_type
+
     _, ext = os.path.splitext(file_path)
     assert "tfrecord" in ext, "please make sure data is in tfrecord format"
     dataset = tf.data.TFRecordDataset(file_path, compression_type=compression)
@@ -349,7 +372,9 @@ def get_features(file_path, compression=None):
     keys_to_features = dict(zip(feature_list, tf_type_list))
     return keys_to_features
 
-def add_summary(data_dir, train_prefix, feature_name, feature_dtype, feature_shape, eval_prefix=None, num_train_examples=None, num_eval_examples=None, compression=None):
+
+def add_summary(data_dir, train_prefix, feature_name, feature_dtype, feature_shape, eval_prefix=None,
+                num_train_examples=None, num_eval_examples=None, compression=None):
     """Adds summary.json file to existing path with tfrecords.
 
     Args:
@@ -359,8 +384,10 @@ def add_summary(data_dir, train_prefix, feature_name, feature_dtype, feature_sha
         feature_dtype (list): Original data type for specific feature, this is used for decoding purpose.
         feature_shape (list): Original data shape for specific feature, this is used for reshaping purpose.
         eval_prefix (str, optional): The prefix of all evaluation tfrecord files. Defaults to None.
-        num_train_examples (int, optional): The total number of training examples, if None, it will calculate automatically. Defaults to None.
-        num_eval_examples (int, optional): The total number of validation examples, if None, it will calculate automatically. Defaults to None.
+        num_train_examples (int, optional): The total number of training examples, if None, it will calculate
+            automatically. Defaults to None.
+        num_eval_examples (int, optional): The total number of validation examples, if None, it will calculate
+            automatically. Defaults to None.
         compression (str, optional): None, 'GZIP' or 'ZLIB'. Defaults to None.
     """
     train_files = [f for f in os.listdir(data_dir) if f.startswith(train_prefix)]
@@ -368,29 +395,36 @@ def add_summary(data_dir, train_prefix, feature_name, feature_dtype, feature_sha
     dataset = tf.data.TFRecordDataset(os.path.join(data_dir, train_files[0]), compression_type=compression)
     example = tf.train.Example.FromString(next(iter(dataset)).numpy())
     feature_list = list(example.features.feature.keys())
-    assert set(feature_list).issuperset(set(feature_name)), "feature name should at least be subset of feature name in tfrecords, found %s , given %s." % (str(feature_list), str(feature_name))
+    assert set(feature_list).issuperset(set(
+        feature_name)), "feature name should at least be subset of feature name in tfrecords, found %s , given %s." % (
+        str(feature_list), str(feature_name))
     if not num_train_examples:
         # num_train_examples = [get_number_of_examples(os.path.join(data_dir, f)) for f in train_files]
         num_trian_files = len(train_files)
-        logging_interval = max(num_trian_files//10, 1)
+        logging_interval = max(num_trian_files // 10, 1)
         num_train_examples = []
         for i in range(num_trian_files):
-            if (i+1) % logging_interval == 0:
-                print("FastEstimator: Calculating number of examples for train %d/%d" % (i+1, num_trian_files))
-            num_train_examples.append(get_number_of_examples(file_path=os.path.join(data_dir, train_files[i]), show_warning=i==0, compression=compression))
-    summary = {"feature_name": feature_name, "feature_dtype": feature_dtype, "feature_shape": feature_shape, "train_files":train_files, "num_train_examples": num_train_examples}
+            if (i + 1) % logging_interval == 0:
+                print("FastEstimator: Calculating number of examples for train %d/%d" % (i + 1, num_trian_files))
+            num_train_examples.append(
+                get_number_of_examples(file_path=os.path.join(data_dir, train_files[i]), show_warning=i == 0,
+                                       compression=compression))
+    summary = {"feature_name": feature_name, "feature_dtype": feature_dtype, "feature_shape": feature_shape,
+               "train_files": train_files, "num_train_examples": num_train_examples}
     if eval_prefix:
         eval_files = [f for f in os.listdir(data_dir) if f.startswith(eval_prefix)]
         assert len(eval_files) > 0, "Couldn't find any validation tfrecord files in %s" % data_dir
         if not num_eval_examples:
             # num_eval_examples = [get_number_of_examples(os.path.join(data_dir, f)) for f in eval_files]
             num_eval_files = len(eval_files)
-            logging_interval = max(num_eval_files//10, 1)
+            logging_interval = max(num_eval_files // 10, 1)
             num_eval_examples = []
             for i in range(num_eval_files):
-                if (i+1) % logging_interval == 0:
-                    print("FastEstimator: Calculating number of examples for eval %d/%d" % (i+1, num_eval_files))
-                num_eval_examples.append(get_number_of_examples(file_path=os.path.join(data_dir, eval_files[i]), show_warning=i==0, compression=compression))
+                if (i + 1) % logging_interval == 0:
+                    print("FastEstimator: Calculating number of examples for eval %d/%d" % (i + 1, num_eval_files))
+                num_eval_examples.append(
+                    get_number_of_examples(file_path=os.path.join(data_dir, eval_files[i]), show_warning=i == 0,
+                                           compression=compression))
         summary["eval_files"] = eval_files
         summary["num_eval_examples"] = num_eval_examples
     if compression:

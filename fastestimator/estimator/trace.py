@@ -1,10 +1,12 @@
-import numpy as np
 import time
+
+import numpy as np
+
 
 class Trace:
     def __init__(self):
-        """trace is a combination of original callbacks, metrics and more, user can use trace to customize their own operations
-        during training, validation and testing.
+        """trace is a combination of original callbacks, metrics and more, user can use trace to customize their own
+        operations during training, validation and testing.
 
         network instance can be accessible by self.network
 
@@ -86,16 +88,18 @@ class TrainLogger(Trace):
             log_steps (int, optional): logging interval. Defaults to 100.
             num_process (int, optional): number of distributed training processes. Defaults to 1.
         """
+        super(TrainLogger, self).__init__()
         self.log_steps = log_steps
         self.num_process = num_process
         self.elapse_times = []
         self.epochs_since_best = 0
         self.best_loss = None
+        self.time_start = None
 
     def on_epoch_begin(self, mode, logs):
         if mode == "train":
             self.time_start = time.time()
-    
+
     def on_batch_end(self, mode, logs):
         if mode == "train" and logs["step"] % self.log_steps == 0:
             if logs["step"] == 0:
@@ -104,7 +108,8 @@ class TrainLogger(Trace):
                 self.elapse_times.append(time.time() - self.time_start)
                 example_per_sec = logs["size"] * self.log_steps / np.sum(self.elapse_times)
             loss = np.array(logs["loss"])
-            print("FastEstimator-Train: step: %d; train_loss: %s; example/sec: %f;" %(logs["step"], str(loss), example_per_sec*self.num_process))
+            print("FastEstimator-Train: step: %d; train_loss: %s; example/sec: %f;" % (
+                logs["step"], str(loss), example_per_sec * self.num_process))
             self.elapse_times = []
             self.time_start = time.time()
 
@@ -115,7 +120,7 @@ class TrainLogger(Trace):
             current_eval_loss = logs["loss"]
             output_metric = {"val_loss": current_eval_loss}
             if np.isscalar(current_eval_loss):
-                if self.best_loss == None or current_eval_loss < self.best_loss:
+                if self.best_loss is None or current_eval_loss < self.best_loss:
                     self.best_loss = current_eval_loss
                     self.epochs_since_best = 0
                 else:
@@ -127,8 +132,11 @@ class TrainLogger(Trace):
 
 class Accuracy(Trace):
     def __init__(self, feature_true=None, feature_predict=None):
+        super(Accuracy, self).__init__()
         self.feature_true = feature_true
         self.feature_predict = feature_predict
+        self.total = 0
+        self.correct = 0
 
     def on_epoch_begin(self, mode, logs):
         if mode == "eval":
@@ -156,4 +164,4 @@ class Accuracy(Trace):
 
     def on_epoch_end(self, mode, logs):
         if mode == "eval":
-            return self.correct/self.total
+            return self.correct / self.total

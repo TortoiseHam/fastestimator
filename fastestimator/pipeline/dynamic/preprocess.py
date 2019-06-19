@@ -1,4 +1,5 @@
 import os
+
 import numpy as np
 
 epsilon = 1e-7
@@ -8,8 +9,6 @@ class AbstractPreprocessing(object):
     """
     An abstract class for preprocessing
     """
-    def __init__(self):
-        pass
 
     def transform(self, data, feature=None):
         """
@@ -32,6 +31,7 @@ class NrrdReader(AbstractPreprocessing):
     Args:
         parent_path (str): Parent path that will be added on given path.
     """
+
     def __init__(self, parent_path=""):
         import nibabel as nib
         self.transform_fn = nib.load
@@ -60,6 +60,7 @@ class DicomReader(AbstractPreprocessing):
     Args:
         parent_path (str): Parent path that will be added on given path.
     """
+
     def __init__(self, parent_path=""):
         import pydicom
         self.transform_fn = pydicom.dcmread
@@ -90,6 +91,7 @@ class ImageReader(AbstractPreprocessing):
         parent_path: Parent path that will be added on given path
         grey_scale: Boolean to indicate whether or not to read image as grayscale
     """
+
     def __init__(self, parent_path="", grey_scale=False):
         import cv2
         self.transform_fn = cv2.imread
@@ -118,6 +120,7 @@ class Zscore(AbstractPreprocessing):
     """
     Standardize data using zscore method
     """
+
     def transform(self, data, feature=None):
         """
         Standardizes the data
@@ -140,6 +143,7 @@ class Minmax(AbstractPreprocessing):
     """
     Normalize data using the minmax method
     """
+
     def transform(self, data, feature=None):
         """
         Normalizes the data
@@ -164,6 +168,7 @@ class Scale(AbstractPreprocessing):
     Args:
         scalar: Scalar for scaling the data
     """
+
     def __init__(self, scalar):
         self.scalar = scalar
 
@@ -190,6 +195,7 @@ class Onehot(AbstractPreprocessing):
     Args:
         num_dim: Number of dimensions of the labels
     """
+
     def __init__(self, num_dim):
         self.num_dim = num_dim
 
@@ -236,6 +242,7 @@ class Reshape(AbstractPreprocessing):
     Args:
         shape: target shape
     """
+
     def __init__(self, shape):
         self.shape = shape
 

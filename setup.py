@@ -37,7 +37,7 @@ setup(name="fastestimator",
           'scipy',
           'pytest',
           'pytest-cov',
-          'opencv-python'
+          'opencv-python', 'tensorflow'
       ],
       # Declare extra set for installation
       extras_require={

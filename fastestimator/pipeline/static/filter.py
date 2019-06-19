@@ -11,6 +11,7 @@ class Filter:
         keep_prob: The probability of keeping the example
         mode: filter on 'train', 'eval' or 'both'
     """
+
     def __init__(self, feature_name, filter_value, keep_prob, mode="train"):
         self.feature_name = feature_name
         self.filter_value = filter_value
@@ -28,15 +29,14 @@ class Filter:
             Tensorflow conditional for filtering the dataset based on the probabilities for each of the values.
         """
         num_filter = len(self.feature_name)
-        for i in range(num_filter):
+        predicate = tf.cond(tf.equal(tf.reshape(dataset[self.feature_name[0]], []), self.filter_value[0]),
+                            lambda: tf.greater(tf.cast(self.keep_prob[0], tf.float32), tf.random.uniform([])),
+                            lambda: tf.constant(True))
+        for i in range(1, num_filter):
             keep_prob_i = tf.cast(self.keep_prob[i], tf.float32)
-            if i == 0:
-                predicate = tf.cond(tf.equal(tf.reshape(dataset[self.feature_name[i]], []), self.filter_value[i]),
-                                    lambda: tf.greater(keep_prob_i, tf.random_uniform([])),
-                                    lambda: tf.constant(True))
-            else:
-                predicate = tf.math.logical_and(predicate,
-                                                tf.cond(tf.equal(tf.reshape(dataset[self.feature_name[i]], []), self.filter_value[i]),
-                                                        lambda: tf.greater(keep_prob_i, tf.random_uniform([])),
-                                                        lambda: tf.constant(True)))
+            predicate = tf.math.logical_and(predicate,
+                                            tf.cond(tf.equal(tf.reshape(dataset[self.feature_name[i]], []),
+                                                             self.filter_value[i]),
+                                                    lambda: tf.greater(keep_prob_i, tf.random.uniform([])),
+                                                    lambda: tf.constant(True)))
         return predicate

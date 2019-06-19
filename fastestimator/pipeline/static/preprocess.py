@@ -3,10 +3,11 @@ import tensorflow as tf
 epsilon = 1e-7
 
 
-class AbstractPreprocessing():
+class AbstractPreprocessing:
     """
     An abstract class for preprocessing
     """
+
     def __init__(self):
         self.feature_name = None
         self.decoded_data = None
@@ -31,6 +32,7 @@ class Binarize(AbstractPreprocessing):
     Args:
         threshold: Threshold for binarizing
     """
+
     def __init__(self, threshold):
         self.thresh = threshold
 
@@ -53,6 +55,7 @@ class Zscore(AbstractPreprocessing):
     """
     Standardize data using zscore method
     """
+
     def transform(self, data):
         """
         Standardizes the data tensor
@@ -77,6 +80,7 @@ class Minmax(AbstractPreprocessing):
     """
     Normalize data using the minmax method
     """
+
     def transform(self, data):
         """
         Normalizes the data tensor
@@ -102,6 +106,7 @@ class Scale(AbstractPreprocessing):
     Args:
         scalar: Scalar for scaling the data
     """
+
     def __init__(self, scalar):
         self.scalar = scalar
 
@@ -127,6 +132,7 @@ class Onehot(AbstractPreprocessing):
     Args:
         num_dim: Number of dimensions of the labels
     """
+
     def __init__(self, num_dim):
         self.num_dim = num_dim
 
@@ -144,7 +150,7 @@ class Onehot(AbstractPreprocessing):
         data = tf.one_hot(data, self.num_dim)
         return data
 
-    
+
 class Resize(AbstractPreprocessing):
     """
     Preprocessing class for resizing the images
@@ -153,6 +159,7 @@ class Resize(AbstractPreprocessing):
         size: Destination shape of the images
         resize_method: One of resize methods provided by tensorflow to be used
     """
+
     def __init__(self, size, resize_method=tf.image.ResizeMethod.BILINEAR):
         self.size = size
         self.resize_method = resize_method
@@ -178,6 +185,7 @@ class Reshape(AbstractPreprocessing):
     Args:
         shape: target shape
     """
+
     def __init__(self, shape):
         self.shape = shape
 

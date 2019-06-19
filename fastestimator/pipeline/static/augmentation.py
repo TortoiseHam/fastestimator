@@ -1,6 +1,8 @@
 import math
+
 import tensorflow as tf
 from tensorflow_addons.image import transform_ops
+
 
 class AbstractAugmentation:
     """
@@ -10,6 +12,7 @@ class AbstractAugmentation:
     Args:
         mode: Augmentation to be applied for training or evaluation, can be "train", "eval" or "both".
     """
+
     def __init__(self, mode="train"):
         self.mode = mode
         self.decoded_data = None
@@ -38,6 +41,7 @@ class AbstractAugmentation:
         """
         return data
 
+
 class Augmentation(AbstractAugmentation):
     """
    This class supports commonly used 2D random affine transformations for data augmentation.
@@ -58,8 +62,9 @@ class Augmentation(AbstractAugmentation):
        flip_up_down: Boolean representing whether to flip the image vertically with a probability of 0.5.
        mode: Augmentation on 'training' data or 'evaluation' data.
    """
+
     def __init__(self, rotation_range=0., width_shift_range=0., height_shift_range=0.,
-                shear_range=0., zoom_range=1., flip_left_right=False, flip_up_down=False, mode='train'):
+                 shear_range=0., zoom_range=1., flip_left_right=False, flip_up_down=False, mode='train'):
         self.mode = mode
         self.height = None
         self.width = None
@@ -71,6 +76,8 @@ class Augmentation(AbstractAugmentation):
         self.flip_left_right_boolean = flip_left_right
         self.flip_up_down_boolean = flip_up_down
         self.transform_matrix = tf.eye(3)
+        self.do_flip_lr_tensor = None
+        self.do_flip_ud_tensor = None
 
     def rotate(self):
         """
@@ -125,7 +132,7 @@ class Augmentation(AbstractAugmentation):
         tx *= self.height
         base_tx = tx * tf.constant([[0, 0, 0], [0, 0, 1], [0, 0, 0]], shape=[3, 3], dtype=tf.float32)
         transform_matrix = tf.constant([[1, 0, 0], [0, 1, 0], [0, 0, 1]], shape=[3, 3],
-                                   dtype=tf.float32) + base_tx + base_ty
+                                       dtype=tf.float32) + base_tx + base_ty
         transform_matrix = self.transform_matrix_offset_center(transform_matrix)
         return transform_matrix
 
@@ -143,12 +150,14 @@ class Augmentation(AbstractAugmentation):
         else:
             shear_range = self.shear_range
         self.shear_range = shear_range
-        sx = tf.random.uniform([], maxval=math.pi / 180 * self.shear_range[1], minval=math.pi / 180 * self.shear_range[0])
-        sy = tf.random.uniform([], maxval=math.pi / 180 * self.shear_range[1], minval=math.pi / 180 * self.shear_range[0])
+        sx = tf.random.uniform([], maxval=math.pi / 180 * self.shear_range[1],
+                               minval=math.pi / 180 * self.shear_range[0])
+        sy = tf.random.uniform([], maxval=math.pi / 180 * self.shear_range[1],
+                               minval=math.pi / 180 * self.shear_range[0])
         base_shear1 = -tf.sin(sx) * tf.constant([[0, 1, 0], [0, 0, 0], [0, 0, 0]], shape=[3, 3], dtype=tf.float32)
         base_shear2 = tf.cos(sy) * tf.constant([[0, 0, 0], [0, 1, 0], [0, 0, 0]], shape=[3, 3], dtype=tf.float32)
         transform_matrix = tf.constant([[1, 0, 0], [0, 0, 0], [0, 0, 1]], shape=[3, 3], dtype=tf.float32) + \
-                       base_shear1 + base_shear2
+            base_shear1 + base_shear2
         transform_matrix = self.transform_matrix_offset_center(transform_matrix)
         return transform_matrix
 
@@ -170,10 +179,11 @@ class Augmentation(AbstractAugmentation):
         zy = tf.random.uniform([], maxval=self.zoom_range[1], minval=self.zoom_range[0])
         base_zx = tf.constant([[1, 0, 0], [0, 0, 0], [0, 0, 0]], shape=[3, 3], dtype=tf.float32) / zx
         base_zy = tf.constant([[0, 0, 0], [0, 1, 0], [0, 0, 0]], shape=[3, 3], dtype=tf.float32) / zy
-        transform_matrix = tf.constant([[0, 0, 0], [0, 0, 0], [0, 0, 1]], shape=[3, 3], dtype=tf.float32) + base_zx + base_zy
+        transform_matrix = tf.constant([[0, 0, 0], [0, 0, 0], [0, 0, 1]], shape=[3, 3],
+                                       dtype=tf.float32) + base_zx + base_zy
         transform_matrix = self.transform_matrix_offset_center(transform_matrix)
         return transform_matrix
-        
+
     def flip(self):
         """
         Decides whether or not to flip
@@ -199,18 +209,17 @@ class Augmentation(AbstractAugmentation):
         eye = tf.constant([[1, 0, 0], [0, 1, 0], [0, 0, 1]], shape=[3, 3], dtype=tf.float32)
 
         offset_matrix = eye + \
-                        tf.multiply(o_x,
-                                    tf.constant([[0, 0, 1], [0, 0, 0], [0, 0, 0]], shape=[3, 3], dtype=tf.float32)) + \
-                        tf.multiply(o_y, tf.constant([[0, 0, 0], [0, 0, 1], [0, 0, 0]], shape=[3, 3], dtype=tf.float32))
+            tf.multiply(o_x,
+                        tf.constant([[0, 0, 1], [0, 0, 0], [0, 0, 0]], shape=[3, 3], dtype=tf.float32)) + \
+            tf.multiply(o_y, tf.constant([[0, 0, 0], [0, 0, 1], [0, 0, 0]], shape=[3, 3], dtype=tf.float32))
 
         reset_matrix = eye + \
-                       tf.multiply(o_x,
-                                   tf.constant([[0, 0, -1], [0, 0, 0], [0, 0, 0]], shape=[3, 3], dtype=tf.float32)) + \
-                       tf.multiply(tf.constant([[0, 0, 0], [0, 0, -1], [0, 0, 0]], shape=[3, 3], dtype=tf.float32), o_y)
+            tf.multiply(o_x, tf.constant([[0, 0, -1], [0, 0, 0], [0, 0, 0]], shape=[3, 3], dtype=tf.float32)) + \
+            tf.multiply(tf.constant([[0, 0, 0], [0, 0, -1], [0, 0, 0]], shape=[3, 3], dtype=tf.float32), o_y)
 
         transform_matrix = tf.tensordot(tf.tensordot(offset_matrix, matrix, axes=1), reset_matrix, axes=1)
         return transform_matrix
-    
+
     def setup(self):
         """
         This method set the appropriate variables necessary for the random 2D augmentation. It also computes the
@@ -288,9 +297,9 @@ class Augmentation(AbstractAugmentation):
         self.transform_matrix = transform_matrix
 
         if self.flip_left_right_boolean:
-             self.do_flip_lr_tensor = self.flip()
+            self.do_flip_lr_tensor = self.flip()
         if self.flip_up_down_boolean:
-             self.do_flip_ud_tensor = self.flip()
+            self.do_flip_ud_tensor = self.flip()
 
     def transform(self, data):
         """
@@ -305,9 +314,10 @@ class Augmentation(AbstractAugmentation):
         """
         transform_matrix_flatten = tf.reshape(self.transform_matrix, shape=[1, 9])
         transform_matrix_flatten = transform_matrix_flatten[0, 0:8]
-        #augment_data = tf.contrib.image.transform(data, transform_matrix_flatten)
+        # augment_data = tf.contrib.image.transform(data, transform_matrix_flatten)
         augment_data = transform_ops.transform(data, transform_matrix_flatten)
-        augment_data = tf.cond(self.do_flip_lr_tensor, lambda: tf.image.flip_left_right(augment_data), lambda: augment_data)
-        augment_data = tf.cond(self.do_flip_ud_tensor, lambda: tf.image.flip_up_down(augment_data), lambda: augment_data)
+        augment_data = tf.cond(self.do_flip_lr_tensor, lambda: tf.image.flip_left_right(augment_data),
+                               lambda: augment_data)
+        augment_data = tf.cond(self.do_flip_ud_tensor, lambda: tf.image.flip_up_down(augment_data),
+                               lambda: augment_data)
         return augment_data
-

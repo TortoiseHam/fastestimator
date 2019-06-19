@@ -9,6 +9,7 @@ class AbstractAugmentation:
     Args:
         mode: Augmentation to be applied for training or evaluation.
     """
+
     def __init__(self, mode="train"):
         self.mode = mode
 
@@ -35,6 +36,7 @@ class AbstractAugmentation:
         """
         return data
 
+
 class Augmentation(AbstractAugmentation):
     """
    This class supports commonly used 2D random affine transformations for data augmentation.
@@ -55,11 +57,13 @@ class Augmentation(AbstractAugmentation):
        flip_up_down: Boolean representing whether to flip the image vertically with a probability of 0.5.
        mode: Augmentation on 'training' data or 'evaluation' data.
    """
+
     def __init__(self, rotation_range=0., width_shift_range=0., height_shift_range=0.,
-                shear_range=0., zoom_range=1., flip_left_right=False, flip_up_down=False, mode='train'):
+                 shear_range=0., zoom_range=1., flip_left_right=False, flip_up_down=False, mode='train'):
+        super(Augmentation, self).__init__()
         self.mode = mode
-        self.width=None
-        self.height=None
+        self.width = None
+        self.height = None
         self.rotation_range = rotation_range
         self.width_shift_range = width_shift_range
         self.height_shift_range = height_shift_range
@@ -90,7 +94,7 @@ class Augmentation(AbstractAugmentation):
         base_matrix = np.array([[0, -1, 0], [1, 0, 0], [0, 0, 0]], dtype=np.float32)
         rotation_matrix_2 = base_matrix * np.sin(theta)
         transform_matrix = rotation_matrix_1 + rotation_matrix_2 + np.array([[0, 0, 0], [0, 0, 0], [0, 0, 1]],
-                                                                               dtype=np.float32)
+                                                                            dtype=np.float32)
 
         transform_matrix = self.transform_matrix_offset_center(transform_matrix)
         return transform_matrix
@@ -123,7 +127,7 @@ class Augmentation(AbstractAugmentation):
         tx *= self.height
         base_tx = tx * np.array([[0, 0, 0], [0, 0, 1], [0, 0, 0]], dtype=np.float32)
         transform_matrix = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]],
-                                   dtype=np.float32) + base_tx + base_ty
+                                    dtype=np.float32) + base_tx + base_ty
         transform_matrix = self.transform_matrix_offset_center(transform_matrix)
         return transform_matrix
 
@@ -146,7 +150,7 @@ class Augmentation(AbstractAugmentation):
         base_shear1 = -np.sin(sx) * np.array([[0, 1, 0], [0, 0, 0], [0, 0, 0]], dtype=np.float32)
         base_shear2 = np.cos(sy) * np.array([[0, 0, 0], [0, 1, 0], [0, 0, 0]], dtype=np.float32)
         transform_matrix = np.array([[1, 0, 0], [0, 0, 0], [0, 0, 1]], dtype=np.float32) + \
-                           base_shear1 + base_shear2
+            base_shear1 + base_shear2
         transform_matrix = self.transform_matrix_offset_center(transform_matrix)
         return transform_matrix
 
@@ -296,10 +300,10 @@ class Augmentation(AbstractAugmentation):
         """
         import cv2
         augment_data = cv2.warpAffine(data, self.transform_matrix[:2, :],
-                                                        (data.shape[0], data.shape[1]), flags=cv2.WARP_INVERSE_MAP)
+                                      (data.shape[0], data.shape[1]), flags=cv2.WARP_INVERSE_MAP)
         augment_data = np.fliplr(augment_data) if self.flip_left_right else augment_data
         augment_data = np.flipud(augment_data) if self.flip_up_down else augment_data
-        if not(data.shape[-1] == augment_data.shape[-1]):
+        if not (data.shape[-1] == augment_data.shape[-1]):
             # This is due to cv2 removing the last channel if the image is gray scale
             augment_data = np.expand_dims(augment_data, axis=-1)
         return augment_data
