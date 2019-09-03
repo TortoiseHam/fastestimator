@@ -812,6 +812,38 @@ class TensorBoard(Trace):
                                         profiler_outdir=self.train_log_dir)
         self.is_tracing = False
 
+    def _log_embeddings2(self, state):
+        embeddings_ckpt = os.path.join(self.train_log_dir, 'key_based_embedding.ckpt-{}'.format(state['train_step']))
+        with h5py.File(embeddings_ckpt, 'w') as group:
+            saving.save_attributes_to_hdf5_group(group,
+                                                 'embedding_keys',
+                                                 [key.encode('utf8') for key, _ in self.embeddings_keys])
+            group.attrs['backend'] = backend.backend().encode('utf8')
+            group.attrs['keras_version'] = str(keras_version).encode('utf8')
+
+            for embedding_val_key, embedding_label_key in self.embeddings_keys:
+                g = group.create_group(embedding_val_key)
+                vals = state.get(embedding_val_key) or state['batch'][embedding_val_key]
+                vals = vals.numpy()
+
+                # names = state.get(embedding_label_key) or state['batch'][embedding_label_key]
+                names = [str(i).encode('utf8') for i, _ in enumerate(vals)]
+
+                # data = defaultdict(lambda: [])
+                # for label, val in zip(names, vals):
+                #     data["{}".format(label).encode('utf8')].append(val)
+
+                saving.save_attributes_to_hdf5_group(g, "weight_names", names)
+                # for label, val in data.items():
+                for name, val in zip(names, vals):
+                    # val = np.vstack(val)
+                    param_dset = g.create_dataset(name, data=val)
+            group.flush()
+        checkpoint_management.update_checkpoint_state_internal(save_dir=os.path.dirname(embeddings_ckpt),
+                                                               model_checkpoint_path=embeddings_ckpt,
+                                                               save_relative_paths=True,
+                                                               all_model_checkpoint_paths=[embeddings_ckpt])
+
     def _log_embeddings(self, state):
         for model_name, model in self.network.model.items():
             embeddings_ckpt = os.path.join(self.train_log_dir,
