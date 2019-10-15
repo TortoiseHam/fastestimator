@@ -14,6 +14,8 @@
 # ==============================================================================
 import tensorflow as tf
 
+import fastestimator.procpoolbase as _base
+from fastestimator.procpool import ProcessPoolExecutor
 from fastestimator.estimator import Estimator
 from fastestimator.network import Network, build
 from fastestimator.pipeline import Pipeline

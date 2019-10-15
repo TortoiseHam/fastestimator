@@ -16,8 +16,8 @@
 import json
 import os
 import time
-from concurrent.futures import ProcessPoolExecutor
-
+from fastestimator import ProcessPoolExecutor
+import multiprocessing as mp
 import numpy as np
 import pandas as pd
 import tensorflow as tf
@@ -205,7 +205,7 @@ class RecordWriter:
                     self.num_process))
         num_example_process_remain = self.num_example_csv[mode] % self.num_process
         futures = []
-        with ProcessPoolExecutor(max_workers=self.num_process) as executor:
+        with ProcessPoolExecutor(max_workers=self.num_process, mp_context=mp.get_context("spawn")) as executor:
             serial_start = 0
             file_idx_start = 0
             for i in range(self.num_process):
