@@ -30,8 +30,8 @@ class BaseNetwork:
         self.ops = to_list(ops)
         self.models = to_list(_collect_models(ops))
         self._verify_inputs()
-        self.effective_inputs = dict()
-        self.effective_outputs = dict()
+        self.effective_inputs = dict()  # This value must be set manually before using the network
+        self.effective_outputs = dict()  # This value must be set manually before using the network
         self.epoch_ops = []
         self.epoch_models = set()
         self.epoch_state = dict()
@@ -64,6 +64,10 @@ class BaseNetwork:
 
     def unload_epoch(self):
         pass
+
+    def run_step(self, batch: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        # Batch, Predictions
+        raise NotImplementedError
 
     def get_loss_keys(self) -> Set[str]:
         loss_keys = set()
@@ -191,7 +195,7 @@ class TorchNetwork(BaseNetwork):
             new_batch = {key: batch[key] for key in self.effective_inputs[mode] if key in batch}
         return new_batch
 
-    def run_step(self, batch: Dict[str, Any]) -> Tuple[Dict[str, Any]]:
+    def run_step(self, batch: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         mode = self.epoch_state["mode"]
         batch_in = self._get_effective_batch_input(batch, mode)
         self.epoch_state["tape"] = NonContext()
@@ -228,7 +232,7 @@ class TorchNetwork(BaseNetwork):
 
 
 class TFNetwork(BaseNetwork):
-    def run_step(self, batch: Dict[str, Any]) -> Tuple[Dict[str, Any]]:
+    def run_step(self, batch: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         mode = self.epoch_state["mode"]
         batch_in = self._get_effective_batch_input(batch, mode)
         strategy = tf.distribute.get_strategy()

@@ -22,11 +22,33 @@ from ast import literal_eval
 from contextlib import ContextDecorator
 from functools import reduce
 from math import gcd
-from typing import Any, List, Optional, Set, Tuple
+from typing import Any, List, Optional, Set, Tuple, TypeVar
 
 import tensorflow as tf
 from pyfiglet import Figlet
 from tensorflow.python.distribute.values import DistributedValues
+import torch
+
+STRING_TO_TORCH_DTYPE = {
+    None: None,
+    'float32': torch.float32,
+    'float': torch.float,
+    'float64': torch.float64,
+    'double': torch.double,
+    'float16': torch.float16,
+    'half': torch.half,
+    'uint8': torch.uint8,
+    'int8': torch.int8,
+    'int16': torch.int16,
+    'short': torch.short,
+    'int32': torch.int32,
+    'int': torch.int,
+    'int64': torch.int64,
+    'long': torch.long,
+    'bool': torch.bool
+}
+
+T = TypeVar('T')
 
 
 def parse_string_to_python(val: str) -> Any:
@@ -197,7 +219,7 @@ def strip_prefix(target: Optional[str], prefix: Optional[str]) -> Optional[str]:
     return target
 
 
-def per_replica_to_global(data: Any) -> Any:
+def per_replica_to_global(data: T) -> T:
     """Combine data from "per-replica" values.
     For multi-GPU training, data are distributed using `tf.distribute.Strategy.experimental_distribute_dataset`. This
     method collects data from all replicas and combine them into one.
