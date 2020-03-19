@@ -18,3 +18,4 @@ from fastestimator.trace.io.image_saver import ImageSaver
 from fastestimator.trace.io.image_viewer import ImageViewer
 from fastestimator.trace.io.model_saver import ModelSaver
 from fastestimator.trace.io.qms import QMSTest
+from fastestimator.trace.io.tensorboard import TensorBoard

@@ -15,6 +15,7 @@
 from collections import OrderedDict
 from typing import Dict, List, TypeVar, Tuple, Optional, Union
 
+import matplotlib.backends.backend_agg as plt_backend_agg
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
@@ -186,12 +187,12 @@ class XaiData(OrderedDict):
     def batch_size(self, row: int) -> int:
         return sorted(self.n_elements.keys())[row]
 
-    def paint_image(self,
-                    height_gap: int = 100,
-                    min_height: int = 200,
-                    width_gap: int = 50,
-                    min_width: int = 200,
-                    dpi: int = 96) -> plt.Figure:
+    def paint_figure(self,
+                     height_gap: int = 100,
+                     min_height: int = 200,
+                     width_gap: int = 50,
+                     min_width: int = 200,
+                     dpi: int = 96) -> plt.Figure:
         total_width = self.total_width(gap=width_gap, min_width=min_width)
         total_height = self.total_height(gap=height_gap, min_height=min_height)
 
@@ -220,3 +221,23 @@ class XaiData(OrderedDict):
                                title=row[col_idx][0] if batch_idx == 0 else None)
 
         return fig
+
+    def paint_numpy(self,
+                    height_gap: int = 100,
+                    min_height: int = 200,
+                    width_gap: int = 50,
+                    min_width: int = 200,
+                    dpi: int = 96) -> np.ndarray:
+        fig = self.paint_figure(height_gap=height_gap,
+                                min_height=min_height,
+                                width_gap=width_gap,
+                                min_width=min_width,
+                                dpi=dpi)
+        # TODO - verify in jupyter notebook
+        canvas = plt_backend_agg.FigureCanvasAgg(fig)
+        canvas.draw()
+        data = np.frombuffer(canvas.buffer_rgba(), dtype=np.uint8)
+        w, h = fig.canvas.get_width_height()
+        data = data.reshape([h, w, 4])[:, :, 0:3]
+        plt.close(fig)
+        return np.stack([data])  # Add a batch dimension

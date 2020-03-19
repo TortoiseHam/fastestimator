@@ -13,7 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from typing import TypeVar, Union, List
+from typing import TypeVar, List
 
 import numpy as np
 import tensorflow as tf
@@ -22,14 +22,12 @@ import torch
 Tensor = TypeVar('Tensor', tf.Tensor, torch.Tensor, torch.autograd.Variable, np.ndarray)
 
 
-def reduce_sum(tensor: Tensor, axis: Union[None, int, List[int]] = None, keepdims: bool = False) -> Tensor:
+def reshape(tensor: Tensor, shape: List[int]) -> Tensor:
     if isinstance(tensor, tf.Tensor):
-        return tf.reduce_sum(tensor, axis=axis, keepdims=keepdims)
+        return tf.reshape(tensor, shape=shape)
     elif isinstance(tensor, torch.Tensor):
-        if axis is None:
-            axis = list(range(len(tensor.shape)))
-        return tensor.sum(dim=axis, keepdim=keepdims)
+        return torch.reshape(tensor, shape=shape)
     elif isinstance(tensor, np.ndarray):
-        return np.sum(tensor, axis=axis, keepdims=keepdims)
+        return np.reshape(tensor, shape)
     else:
         raise ValueError("Unrecognized tensor type {}".format(type(tensor)))

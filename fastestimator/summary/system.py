@@ -12,9 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+import datetime
 from typing import Any, Optional
 
 import torch
+
 from fastestimator.network import BaseNetwork
 from fastestimator.summary.summary import Summary
 
@@ -31,6 +33,7 @@ class System:
     network: BaseNetwork  # A reference to the network being used this epoch
     max_steps_per_epoch: Optional[int]  # Training epoch will complete after n steps even if loader is not yet exhausted
     summary: Summary  # An object to write experiment results to
+    experiment_time: str  # A timestamp indicating when this model was trained
 
     def __init__(self,
                  network: BaseNetwork,
@@ -51,11 +54,13 @@ class System:
         self.max_steps_per_epoch = max_steps_per_epoch
         self.stop_training = False
         self.summary = Summary(None)
+        self.experiment_time = ""
 
     def update_global_step(self):
         self.global_step += 1
 
     def reset(self, summary_name: Optional[str] = None):
+        self.experiment_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         self.mode = "train"
         self.global_step = 0
         self.epoch_idx = 0
@@ -64,6 +69,7 @@ class System:
         self.summary = Summary(summary_name)
 
     def reset_for_test(self, summary_name: Optional[str] = None):
+        self.experiment_time = self.experiment_time or datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         self.mode = "test"
         if not self.stop_training:
             self.epoch_idx = self.total_epochs - 1

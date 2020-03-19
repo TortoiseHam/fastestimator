@@ -65,10 +65,6 @@ class BaseNetwork:
     def unload_epoch(self):
         pass
 
-    def run_step(self, batch: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-        # Batch, Predictions
-        raise NotImplementedError
-
     def get_loss_keys(self) -> Set[str]:
         loss_keys = set()
         for op in self.ops:
@@ -321,11 +317,12 @@ class TFNetwork(BaseNetwork):
         return data
 
 
-def build(model_fn: Callable,
-          optimizer_fn: Union[str, Scheduler, Callable, List[str], List[Callable], List[Scheduler], None],
-          weights_path: Union[str, None, List[Union[str, None]]] = None,
-          model_names: Union[str, List[str], None] = None
-          ) -> Union[tf.keras.Model, torch.nn.Module, List[tf.keras.Model], List[torch.nn.Module]]:
+def build(
+    model_fn: Callable,
+    optimizer_fn: Union[str, Scheduler, Callable, List[str], List[Callable], List[Scheduler], None],
+    weights_path: Union[str, None, List[Union[str, None]]] = None,
+    model_names: Union[str, List[str], None] = None
+) -> Union[tf.keras.Model, torch.nn.Module, List[tf.keras.Model], List[torch.nn.Module]]:
     """Build model instances and associate them with optimizers
     Args:
         model_fn: function that define model(s)

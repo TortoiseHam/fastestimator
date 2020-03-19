@@ -38,7 +38,7 @@ class ImageSaver(Trace):
             if key in data:
                 imgs = data[key]
                 if isinstance(imgs, XaiData):
-                    f = imgs.paint_image()
+                    f = imgs.paint_figure()
                     im_path = os.path.join(self.save_dir,
                                            "{}_{}_epoch_{}.png".format(key, self.system.mode, self.system.epoch_idx))
                     plt.savefig(im_path, dpi=self.dpi, bbox_inches="tight")

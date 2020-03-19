@@ -22,12 +22,12 @@ from ast import literal_eval
 from contextlib import ContextDecorator
 from functools import reduce
 from math import gcd
-from typing import Any, List, Optional, Set, Tuple, TypeVar
+from typing import Any, List, Optional, Set, Tuple, TypeVar, Callable
 
 import tensorflow as tf
+import torch
 from pyfiglet import Figlet
 from tensorflow.python.distribute.values import DistributedValues
-import torch
 
 STRING_TO_TORCH_DTYPE = {
     None: None,
@@ -285,3 +285,30 @@ def parse_modes(modes: Set[str]) -> Set[str]:
             new_modes.discard(mode.strip("!"))
         modes = new_modes
     return modes
+
+
+def is_number(arg: Any) -> bool:
+    """Check if a given string can be converted into a number.
+    Args:
+        arg: an input value
+    Returns:
+        True iff the string represents a number
+    """
+    try:
+        float(arg)
+        return True
+    except (ValueError, TypeError):
+        return False
+
+
+class DefaultKeyDict(dict):
+    """
+    Like collections.defaultdict but it passes the key argument to the default function
+    """
+    def __init__(self, default: Callable, **kwargs):
+        super().__init__(**kwargs)
+        self.factory = default
+
+    def __missing__(self, key):
+        res = self[key] = self.factory(key)
+        return res

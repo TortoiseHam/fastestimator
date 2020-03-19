@@ -31,7 +31,7 @@ class ImageViewer(Trace):
             if key in data:
                 imgs = data[key]
                 if isinstance(imgs, XaiData):
-                    imgs.paint_image()
+                    imgs.paint_figure()
                     plt.show()
                 else:
                     for idx, img in enumerate(imgs):

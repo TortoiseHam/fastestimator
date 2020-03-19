@@ -15,10 +15,11 @@
 
 from typing import TypeVar
 
+import numpy as np
 import tensorflow as tf
 import torch
 
-Tensor = TypeVar('Tensor', tf.Tensor, torch.Tensor, torch.autograd.Variable)
+Tensor = TypeVar('Tensor', tf.Tensor, torch.Tensor, torch.autograd.Variable, np.ndarray)
 
 
 def abs(tensor: Tensor) -> Tensor:
@@ -26,5 +27,7 @@ def abs(tensor: Tensor) -> Tensor:
         return tf.abs(tensor)
     elif isinstance(tensor, torch.Tensor):
         return torch.abs(tensor)
+    elif isinstance(tensor, np.ndarray):
+        return np.abs(tensor)
     else:
         raise ValueError("Unrecognized tensor type {}".format(type(tensor)))
