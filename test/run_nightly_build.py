@@ -90,7 +90,7 @@ def test_tutorial(report: Dict[str, Dict[str, float]], fail_list: List[str]) -> 
                 fail_list.append(test_name)
 
 
-# os.system() will return 0 when it execute sucessfully
+# os.system() will return 0 when it execute successfully
 if __name__ == "__main__":
     report = {}
     fail_list = []

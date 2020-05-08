@@ -50,9 +50,9 @@ def get_dependency():
         'h5py',
         'jsonpickle',
         'python-docx',
-        'tensorflow_probability==0.8.0',
+        'tensorflow_probability==0.10.0-rc1',
         'transformers==2.4.1',
-        'tensorflow==2.1.0'
+        'tensorflow==2.2.0'
     ]
     if os.name == "nt":
         dependencies.append(

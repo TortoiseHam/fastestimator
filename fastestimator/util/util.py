@@ -582,6 +582,7 @@ def show_image(im: Union[np.ndarray, Tensor],
         else:
             axis.imshow(im, alpha=alpha)
     if title is not None:
+        title = title.replace("_", " ")
         axis.set_title(title, fontsize=min(20, 1 + width // len(title)), family='monospace')
     return fig
 
