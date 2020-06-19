@@ -21,12 +21,13 @@ from unittest.mock import Base, MagicMock
 
 import jsonpickle
 import matplotlib
+import pydot
 import pytorch_model_summary as pms
 import tensorflow as tf
 import torch
 from natsort import humansorted
 from pylatex import Command, Document, Figure, Hyperref, Itemize, Label, LongTable, Marker, MultiColumn, NoEscape, \
-    Package, Section, Subsection, Tabular, escape_latex
+    Package, Section, Subsection, Subsubsection, Tabular, escape_latex
 from pylatex.utils import bold
 
 import fastestimator as fe
@@ -34,6 +35,7 @@ from fastestimator.dataset.dataset import FEDataset
 from fastestimator.estimator import Estimator
 from fastestimator.network import BaseNetwork
 from fastestimator.pipeline import Pipeline
+from fastestimator.schedule.schedule import Scheduler, get_current_items, get_signature_epochs
 from fastestimator.summary.logs.log_plot import visualize_logs
 from fastestimator.trace.trace import Trace
 from fastestimator.util.data import Data
@@ -98,6 +100,7 @@ class Traceability(Trace):
 
     def on_end(self, data: Data) -> None:
         self._document_training_graphs()
+        self._document_fe_graph()
         self._document_init_params()
         self._document_models()
         self._document_sys_config()
@@ -120,6 +123,32 @@ class Traceability(Trace):
             with self.doc.create(Figure(position='h!')) as plot:
                 plot.add_image(os.path.relpath(log_path, start=self.save_dir),
                                width=NoEscape(r'1.0\textwidth,height=0.95\textheight,keepaspectratio'))
+
+    def _document_fe_graph(self) -> None:
+        """Add FE execution graphs into the traceability document.
+        """
+        with self.doc.create(Section("FastEstimator Architecture")):
+            for mode in self.system.pipeline.data.keys():
+                self.doc.append(NoEscape(r'\FloatBarrier'))
+                with self.doc.create(Subsection(mode.capitalize())):
+                    scheduled_items = self.system.pipeline.get_scheduled_items(
+                        mode) + self.system.network.get_scheduled_items(mode) + self.system.traces
+                    signature_epochs = get_signature_epochs(scheduled_items,
+                                                            total_epochs=self.system.epoch_idx,
+                                                            mode=mode)
+                    epochs_with_data = self.system.pipeline.get_epochs_with_data(total_epochs=self.system.epoch_idx,
+                                                                                 mode=mode)
+                    for epoch in signature_epochs:
+                        if epoch not in epochs_with_data:
+                            continue
+                        self.doc.append(NoEscape(r'\FloatBarrier'))
+                        with self.doc.create(Subsubsection(f"Epoch {epoch}")):
+                            diagram = self._draw_diagram(mode, epoch)
+                            img_path = os.path.join(self.figure_dir, f'FE_Architecture_{mode}_{epoch}.pdf')
+                            diagram.write(img_path, format='pdf')
+                            with self.doc.create(Figure(position='ht!')) as plot:
+                                plot.add_image(os.path.relpath(img_path, start=self.save_dir),
+                                               width=NoEscape(r'1.0\textwidth,height=0.95\textheight,keepaspectratio'))
 
     def _document_init_params(self) -> None:
         """Add initialization parameters to the traceability document.
@@ -192,7 +221,7 @@ class Traceability(Trace):
                         # Visual Summary
                         # noinspection PyBroadException
                         try:
-                            file_path = os.path.join(self.figure_dir, f"{model.model_name}.pdf")
+                            file_path = os.path.join(self.figure_dir, f"FE_Model_{model.model_name}.pdf")
                             tf.keras.utils.plot_model(model, to_file=file_path, show_shapes=True, expand_nested=True)
                             # TODO - cap output image size like in the pytorch implementation in case of huge network
                             # TODO - save raw .dot file in case system lacks graphviz
@@ -226,7 +255,7 @@ class Traceability(Trace):
                                 graph.attr(size="200,200")  # LaTeX \maxdim is around 575cm (226 inches)
                                 graph.attr(margin='0')
                                 # TODO - save raw .dot file in case system lacks graphviz
-                                file_path = graph.render(filename=model.model_name,
+                                file_path = graph.render(filename=f"FE_Model_{model.model_name}",
                                                          directory=self.figure_dir,
                                                          format='pdf',
                                                          cleanup=True)
@@ -281,3 +310,20 @@ class Traceability(Trace):
                         tabular.add_row((escape_latex(name), escape_latex(str(module.VERSION))),
                                         color='black!5' if color else 'white')
                         color = not color
+
+    def _draw_diagram(self, mode: str, epoch: int) -> pydot.Dot:
+        ds = self.system.pipeline.data[mode]
+        if isinstance(ds, Scheduler):
+            ds = ds.get_current_value(epoch)
+        pipe_ops = get_current_items(self.system.pipeline.ops, run_modes=mode, epoch=epoch) if isinstance(
+            ds, FEDataset) else []
+        net_ops = get_current_items(self.system.network.ops, run_modes=mode, epoch=epoch)
+        traces = get_current_items(self.system.traces, run_modes=mode, epoch=epoch)
+        # TODO - investigate ways to draw diagrams directly in latex so that can have links (Tikz?)
+        diagram = pydot.Dot()
+        diagram.set('rankdir', 'TB')
+        diagram.set('concentrate', True)
+        diagram.set('dpi', 300)
+        diagram.set_node_defaults(shape='record')
+        diagram.add_node(pydot.Node(str(id(ds)), label='Dataset'))
+        return diagram
