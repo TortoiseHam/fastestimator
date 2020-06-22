@@ -18,7 +18,7 @@ import platform
 import shutil
 import sys
 from unittest.mock import Base, MagicMock
-
+import dot2tex as d2t
 import jsonpickle
 import matplotlib
 import pydot
@@ -27,8 +27,9 @@ import tensorflow as tf
 import torch
 from natsort import humansorted
 from pylatex import Command, Document, Figure, Hyperref, Itemize, Label, LongTable, Marker, MultiColumn, NoEscape, \
-    Package, Section, Subsection, Subsubsection, Tabular, escape_latex
+    Package, Section, Subsection, Subsubsection, Tabular, escape_latex, TikZ, TikZCoordinate, TikZDraw, TikZNode, TikZOptions, TikZPathList, TikZUserPath
 from pylatex.utils import bold
+from pylatex.base_classes import Options
 
 import fastestimator as fe
 from fastestimator.dataset.dataset import FEDataset
@@ -68,6 +69,9 @@ class Traceability(Trace):
         self.config_tables = []
         self.doc = Document()
 
+    def on_batch_end(self, data: Data) -> None:
+        self.system.stop_training = True
+
     def on_begin(self, data: Data) -> None:
         exp_name = self.system.summary.name
         if not exp_name:
@@ -79,6 +83,7 @@ class Traceability(Trace):
         self.doc = Document(geometry_options=['lmargin=2cm', 'rmargin=2cm', 'tmargin=2cm', 'bmargin=2cm'])
         # Keep tables/figures in their sections
         self.doc.packages.append(Package(name='placeins', options=['section']))
+        self.doc.preamble.append(NoEscape(r'\usetikzlibrary{positioning}'))
 
         # Fix an issue with too many tables for LaTeX to render
         self.doc.preamble.append(NoEscape(r'\maxdeadcycles=' + str(2 * n_floats + 10) + ''))
@@ -104,6 +109,13 @@ class Traceability(Trace):
         self._document_init_params()
         self._document_models()
         self._document_sys_config()
+
+        # Need to move the tikz dependency after the xcolor package
+        self.doc.dumps_packages()
+        packages = self.doc.packages
+        tikz = Package(name='tikz')
+        packages.discard(tikz)
+        packages.add(tikz)
 
         if shutil.which("latexmk") is None and shutil.which("pdflatex") is None:
             # No LaTeX Compiler is available
@@ -142,13 +154,10 @@ class Traceability(Trace):
                         if epoch not in epochs_with_data:
                             continue
                         self.doc.append(NoEscape(r'\FloatBarrier'))
-                        with self.doc.create(Subsubsection(f"Epoch {epoch}")):
-                            diagram = self._draw_diagram(mode, epoch)
-                            img_path = os.path.join(self.figure_dir, f'FE_Architecture_{mode}_{epoch}.pdf')
-                            diagram.write(img_path, format='pdf')
-                            with self.doc.create(Figure(position='ht!')) as plot:
-                                plot.add_image(os.path.relpath(img_path, start=self.save_dir),
-                                               width=NoEscape(r'1.0\textwidth,height=0.95\textheight,keepaspectratio'))
+                        with self.doc.create(
+                                Subsubsection(f"Epoch {epoch}",
+                                              label=Label(Marker(name=f"{mode}{epoch}", prefix="ssubsec")))):
+                            self._draw_diagram(mode, epoch)
 
     def _document_init_params(self) -> None:
         """Add initialization parameters to the traceability document.
@@ -217,6 +226,12 @@ class Traceability(Trace):
                         self.doc.append(Verbatim(summary))
                         with self.doc.create(Center()):
                             self.doc.append(HrefFEID(FEID(id(model)), model.model_name))
+
+                        # dot = tf.keras.utils.model_to_dot(model, show_shapes=True, expand_nested=True)
+                        # ltx = d2t.dot2tex(dot.to_string(), format='tikz', texmode='math')
+                        # print(ltx)
+                        # self.doc.append(
+                        #     NoEscape(d2t.dot2tex(dot.to_string(), format='tikz', figonly=True, texmode='math')))
 
                         # Visual Summary
                         # noinspection PyBroadException
@@ -311,7 +326,7 @@ class Traceability(Trace):
                                         color='black!5' if color else 'white')
                         color = not color
 
-    def _draw_diagram(self, mode: str, epoch: int) -> pydot.Dot:
+    def _draw_diagram(self, mode: str, epoch: int) -> None:
         ds = self.system.pipeline.data[mode]
         if isinstance(ds, Scheduler):
             ds = ds.get_current_value(epoch)
@@ -319,11 +334,27 @@ class Traceability(Trace):
             ds, FEDataset) else []
         net_ops = get_current_items(self.system.network.ops, run_modes=mode, epoch=epoch)
         traces = get_current_items(self.system.traces, run_modes=mode, epoch=epoch)
-        # TODO - investigate ways to draw diagrams directly in latex so that can have links (Tikz?)
-        diagram = pydot.Dot()
-        diagram.set('rankdir', 'TB')
-        diagram.set('concentrate', True)
-        diagram.set('dpi', 300)
-        diagram.set_node_defaults(shape='record')
-        diagram.add_node(pydot.Node(str(id(ds)), label='Dataset'))
-        return diagram
+        with self.doc.create(TikZ()) as diagram:
+            node_kwargs = {
+                'align': 'center',
+                'minimum height': '50pt',
+                'minimum width': '100pt',
+                'fill': 'black!10',
+                'node distance': '50pt',
+            }
+            box = TikZNode(text='Dataset', handle='ds', options=TikZOptions('draw', 'rounded corners', **node_kwargs))
+            diagram.append(box)
+            handles = ['ds']
+            for idx, op in enumerate(pipe_ops):
+                op_node = TikZNode(
+                    text=HrefFEID(FEID(id(op)), op.__class__.__name__).dumps(),
+                    handle=str(id(op)),
+                    options=TikZOptions('draw', 'rounded corners', **node_kwargs, **{'below': f'of {handles[-1]}'}))
+                diagram.append(op_node)
+                for inp in op.inputs:
+                    for prior_op in reversed(pipe_ops[:idx - 1]):
+                        if inp in prior_op.outputs:
+                            # path = TikZUserPath('--', options=Options(f"edge label={inp}"))
+                            diagram.append(TikZDraw(TikZPathList(box, '--', op_node), options=TikZOptions()))
+                            break
+                handles.append(str(id(op)))
