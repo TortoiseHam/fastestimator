@@ -21,7 +21,7 @@ import time
 from ast import literal_eval
 from contextlib import ContextDecorator
 from typing import Any, Callable, Dict, KeysView, List, MutableMapping, Optional, Set, Tuple, Type, TypeVar, Union
-
+from collections import namedtuple
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
@@ -99,6 +99,7 @@ TENSOR_TO_NP_DTYPE = {
 }
 
 Tensor = TypeVar('Tensor', tf.Tensor, torch.Tensor)
+Freq = namedtuple('Freq', ['is_step', 'freq'])
 
 
 def parse_string_to_python(val: str) -> Any:
@@ -838,3 +839,38 @@ def to_number(data: Union[tf.Tensor, torch.Tensor, np.ndarray, int, float]) -> n
         else:
             data = data.numpy()
     return np.array(data)
+
+
+def parse_freq(freq: Union[None, str, int]) -> Freq:
+    """A helper function to convert string based frequency inputs into epochs or steps
+
+    Args:
+        freq: One of either None, "step", "epoch", "#s", "#e", or #, where # is an integer.
+
+    Returns:
+        A `Freq` object recording whether the trace should run on an epoch basis or a step basis, as well as the
+        frequency with which it should run.
+
+    Raises:
+        ValueError: If the input `freq` was not formatted properly.
+    """
+    if freq is None:
+        return Freq(False, 0)
+    if isinstance(freq, int):
+        if freq < 1:
+            raise ValueError(f"Frequency argument must be a positive integer but got {freq}")
+        return Freq(True, freq)
+    if isinstance(freq, str):
+        if freq in {'step', 's'}:
+            return Freq(True, 1)
+        if freq in {'epoch', 'e'}:
+            return Freq(False, 1)
+        parts = re.match(r"^([0-9]+)([se])$", freq)
+        if parts is None:
+            raise ValueError(f"Frequency argument must be formatted like <int><s|e> but got {freq}")
+        freq = int(parts[1])
+        if freq < 1:
+            raise ValueError(f"Frequency argument must be a positive integer but got {freq}")
+        return Freq(parts[2] == 's', freq)
+    else:
+        raise ValueError(f"Unrecognized type passed as Frequency: {type(freq)}")

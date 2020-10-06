@@ -13,8 +13,6 @@
 # limitations under the License.
 # ==============================================================================
 import os
-import re
-from collections import namedtuple
 from typing import Any, Dict, Iterable, List, Optional, Tuple, TypeVar, Union
 
 import matplotlib.pyplot as plt
@@ -38,7 +36,7 @@ from fastestimator.trace.trace import Trace
 from fastestimator.util.data import Data
 from fastestimator.util.img_data import ImgData
 from fastestimator.util.traceability_util import traceable
-from fastestimator.util.util import DefaultKeyDict, is_number, to_list, to_number, to_set
+from fastestimator.util.util import DefaultKeyDict, is_number, parse_freq, to_list, to_number, to_set
 
 # https://github.com/pytorch/pytorch/issues/30966
 tf.io.gfile = tb.compat.tensorflow_stub.io.gfile
@@ -287,7 +285,6 @@ class TensorBoard(Trace):
         embedding_labels: Keys corresponding to label information for the `write_embeddings`.
         embedding_images: Keys corresponding to raw images to be associated with the `write_embeddings`.
     """
-    Freq = namedtuple('Freq', ['is_step', 'freq'])
     writer: _BaseWriter
 
     def __init__(self,
@@ -302,11 +299,11 @@ class TensorBoard(Trace):
                  embedding_images: Union[None, str, List[str]] = None) -> None:
         super().__init__(inputs="*")
         self.root_log_dir = log_dir
-        self.update_freq = self._parse_freq(update_freq)
+        self.update_freq = parse_freq(update_freq)
         self.write_graph = write_graph
         self.painted_graphs = set()
         self.write_images = to_set(write_images)
-        self.histogram_freq = self._parse_freq(weight_histogram_freq)
+        self.histogram_freq = parse_freq(weight_histogram_freq)
         if paint_weights and self.histogram_freq.freq == 0:
             self.histogram_freq.is_step = False
             self.histogram_freq.freq = 1
@@ -331,37 +328,6 @@ class TensorBoard(Trace):
         self.write_embeddings = [(feature, label, img_label) for feature,
                                  label,
                                  img_label in zip(write_embeddings, embedding_labels, embedding_images)]
-
-    def _parse_freq(self, freq: Union[None, str, int]) -> Freq:
-        """A helper function to convert string based frequency inputs into epochs or steps
-
-        Args:
-            freq: One of either None, "step", "epoch", "#s", "#e", or #, where # is an integer.
-
-        Returns:
-            A `Freq` object recording whether the trace should run on an epoch basis or a step basis, as well as the
-            frequency with which it should run.
-        """
-        if freq is None:
-            return self.Freq(False, 0)
-        if isinstance(freq, int):
-            if freq < 1:
-                raise ValueError(f"Tensorboard frequency argument must be a positive integer but got {freq}")
-            return self.Freq(True, freq)
-        if isinstance(freq, str):
-            if freq in {'step', 's'}:
-                return self.Freq(True, 1)
-            if freq in {'epoch', 'e'}:
-                return self.Freq(False, 1)
-            parts = re.match(r"^([0-9]+)([se])$", freq)
-            if parts is None:
-                raise ValueError(f"Tensorboard frequency argument must be formatted like <int><s|e> but got {freq}")
-            freq = int(parts[1])
-            if freq < 1:
-                raise ValueError(f"Tensorboard frequency argument must be a positive integer but got {freq}")
-            return self.Freq(parts[2] == 's', freq)
-        else:
-            raise ValueError(f"Unrecognized type passed as Tensorboard frequency: {type(freq)}")
 
     def on_begin(self, data: Data) -> None:
         print("FastEstimator-Tensorboard: writing logs to {}".format(
