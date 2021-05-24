@@ -21,7 +21,9 @@ import torch.nn.functional as fn
 
 import fastestimator as fe
 from fastestimator.dataset.data import cifair100
-from fastestimator.op.numpyop.univariate import ChannelTranspose, Normalize
+from fastestimator.op.numpyop.meta import Sometimes
+from fastestimator.op.numpyop.multivariate import HorizontalFlip, PadIfNeeded, RandomCrop
+from fastestimator.op.numpyop.univariate import CoarseDropout, Normalize, ChannelTranspose
 from fastestimator.op.tensorop.loss import CrossEntropy
 from fastestimator.op.tensorop.model import ModelOp, UpdateOp
 from fastestimator.trace import Trace
@@ -116,11 +118,11 @@ class Adjuster(Trace):
 
     def on_epoch_begin(self, data: Data) -> None:
         if self.system.epoch_idx % 5 == 0:
-            self.model.get_new_kernels(self.system.epoch_idx)
+            self.model.get_new_kernels()
 
 
-def get_estimator(epochs=50,
-                  batch_size=64,
+def get_estimator(epochs=100,
+                  batch_size=128,
                   max_train_steps_per_epoch=None,
                   max_eval_steps_per_epoch=None,
                   save_dir=tempfile.mkdtemp()):
@@ -134,9 +136,12 @@ def get_estimator(epochs=50,
         batch_size=batch_size,
         ops=[
             Normalize(inputs="x", outputs="x", mean=(0.4914, 0.4822, 0.4465), std=(0.2471, 0.2435, 0.2616)),
+            PadIfNeeded(min_height=40, min_width=40, image_in="x", image_out="x", mode="train"),
+            RandomCrop(32, 32, image_in="x", image_out="x", mode="train"),
+            Sometimes(HorizontalFlip(image_in="x", image_out="x", mode="train")),
+            CoarseDropout(inputs="x", outputs="x", mode="train", max_holes=1),
             ChannelTranspose(inputs="x", outputs="x"),
-        ],
-        num_process=0)
+        ])
 
     # step 2
     model = fe.build(model_fn=lambda: CBSLeNet(), optimizer_fn="adam")
@@ -164,5 +169,5 @@ def get_estimator(epochs=50,
 
 if __name__ == "__main__":
     est = get_estimator()
-    est.fit('cbs')
+    est.fit('cbs_2')
     est.test()
